@@ -23,5 +23,5 @@ Each folder includes its own README or inline documentation. General usage instr
 
 1. **Clone the Repo**  
    ```bash
-   git clone https://github.com/your-org/migration-scripts.git
+   git clone https://github.com/AustinRado/AWS-WORKLOADS.git
    cd migration-scripts
