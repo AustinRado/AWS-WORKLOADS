@@ -1,62 +1,55 @@
 import os
+from getpass import getpass
 from azure.storage.blob import BlobServiceClient
 import boto3
 from botocore.exceptions import NoCredentialsError
 
-# ==== CONFIGURATION ====
+# ==== PROMPT FOR AZURE CONNECTION STRING ====
+AZURE_CONNECTION_STRING = getpass("🔐 Enter your Azure Storage connection string: ").strip()
+AZURE_CONTAINER_NAME = input("📦 Enter your Azure container name: ").strip()
 
-# Azure Blob config
-AZURE_CONNECTION_STRING = "DefaultEndpointsProtocol=https;AccountName=YOUR_ACCOUNT;AccountKey=YOUR_KEY;EndpointSuffix=core.windows.net"
-AZURE_CONTAINER_NAME = "your-container-name"
+# ==== AWS CONFIG ====
+S3_BUCKET_NAME = "your-s3-bucket-name"
+S3_UPLOAD_PREFIX = ""  # e.g. 'backup/' or leave empty
 
-# AWS S3 config
-S3_BUCKET_NAME = " " # optional path in S3
-S3_UPLOAD_PREFIX = ""  # optional path in S3 (e.g. 'backup/')
-
-# Temp download folder
-TEMP_DIR = "temp_downloads"
-os.makedirs(TEMP_DIR, exist_ok=True)
-
-# ==== AZURE CLIENT ====
-
+# ==== SETUP CLIENTS ====
 azure_blob_service = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
 container_client = azure_blob_service.get_container_client(AZURE_CONTAINER_NAME)
 
-# ==== AWS CLIENT ====
-
 s3_client = boto3.client("s3")
 
-# ==== MAIN MIGRATION LOGIC ====
+# ==== TEMP DIR ====
+TEMP_DIR = "temp_downloads"
+os.makedirs(TEMP_DIR, exist_ok=True)
 
+# ==== MAIN MIGRATION FUNCTION ====
 def migrate_blobs():
-    print(f"📥 Listing blobs in Azure container: {AZURE_CONTAINER_NAME}...")
+    print(f"\n📥 Listing blobs in container: {AZURE_CONTAINER_NAME}...")
     blobs = container_client.list_blobs()
 
     for blob in blobs:
         blob_name = blob.name
         print(f"➡️ Migrating blob: {blob_name}")
 
-        local_file_path = os.path.join(TEMP_DIR, os.path.basename(blob_name))
+        local_path = os.path.join(TEMP_DIR, os.path.basename(blob_name))
 
         # Download from Azure
-        with open(local_file_path, "wb") as download_file:
-            download_stream = container_client.download_blob(blob_name)
-            download_file.write(download_stream.readall())
+        with open(local_path, "wb") as file:
+            data = container_client.download_blob(blob_name)
+            file.write(data.readall())
 
         # Upload to S3
-        s3_key = os.path.join(S3_UPLOAD_PREFIX, blob_name).replace("\\", "/")  # S3 key should use forward slashes
-
+        s3_key = os.path.join(S3_UPLOAD_PREFIX, blob_name).replace("\\", "/")
         try:
-            s3_client.upload_file(local_file_path, S3_BUCKET_NAME, s3_key)
-            print(f"✅ Uploaded to S3: s3://{S3_BUCKET_NAME}/{s3_key}")
+            s3_client.upload_file(local_path, S3_BUCKET_NAME, s3_key)
+            print(f"✅ Uploaded to s3://{S3_BUCKET_NAME}/{s3_key}")
         except NoCredentialsError:
-            print("❌ AWS credentials not found. Make sure they're configured.")
+            print("❌ AWS credentials not found. Please configure them with `aws configure`.")
             return
 
-        # Clean up
-        os.remove(local_file_path)
+        os.remove(local_path)
 
-    print("🎉 Migration complete!")
+    print("\n🎉 Migration completed!")
 
 # ==== RUN ====
 if __name__ == "__main__":
