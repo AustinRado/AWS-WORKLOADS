@@ -10,7 +10,7 @@ AZURE_CONNECTION_STRING = "DefaultEndpointsProtocol=https;AccountName=YOUR_ACCOU
 AZURE_CONTAINER_NAME = "your-container-name"
 
 # AWS S3 config
-S3_BUCKET_NAME = "talantaaipoolbucket"
+S3_BUCKET_NAME = " " # optional path in S3
 S3_UPLOAD_PREFIX = ""  # optional path in S3 (e.g. 'backup/')
 
 # Temp download folder
