@@ -1,0 +1,61 @@
+
+# Azure CLI command to create PostgreSQL database
+az postgres server create \
+  --resource-group myResourceGroup \
+  --name my-postgres-server \
+  --location eastus \
+  --admin-user myAdmin \
+  --admin-password myPassword123! \
+  --sku-name GP_Gen5_2 \
+  --version 11
+
+az postgres db create \
+  --resource-group myResourceGroup \
+  --server-name my-postgres-server \
+  --name mydatabase
+
+# AWS DMS Migration Steps
+
+# 1. Create replication instance
+aws dms create-replication-instance \
+  --replication-instance-identifier my-dms-instance \
+  --replication-instance-class dms.t3.medium \
+  --allocated-storage 50 \
+  --vpc-security-group-ids sg-xxxxx \
+  --availability-zone us-east-1a
+
+# 2. Create source endpoint (Azure PostgreSQL)
+aws dms create-endpoint \
+  --endpoint-identifier source-postgres \
+  --endpoint-type source \
+  --engine-name postgres \
+  --username myAdmin \
+  --password myPassword123! \
+  --server-name my-postgres-server.postgres.database.azure.com \
+  --port 5432 \
+  --database-name mydatabase
+
+# 3. Create target endpoint (AWS RDS PostgreSQL)
+aws dms create-endpoint \
+  --endpoint-identifier target-postgres \
+  --endpoint-type target \
+  --engine-name postgres \
+  --username targetAdmin \
+  --password targetPassword123! \
+  --server-name target-instance.xxxxx.region.rds.amazonaws.com \
+  --port 5432 \
+  --database-name mydatabase
+
+# 4. Create and start replication task
+aws dms create-replication-task \
+  --replication-task-identifier postgres-migration \
+  --source-endpoint-arn arn:aws:dms:region:account:endpoint:source-endpoint-id \
+  --target-endpoint-arn arn:aws:dms:region:account:endpoint:target-endpoint-id \
+  --replication-instance-arn arn:aws:dms:region:account:rep:replication-instance-id \
+  --migration-type full-load \
+  --table-mappings file://table-mappings.json \
+  --replication-task-settings file://task-settings.json
+
+aws dms start-replication-task \
+  --replication-task-arn arn:aws:dms:region:account:task:task-id \
+  --start-replication-task-type start-replication
